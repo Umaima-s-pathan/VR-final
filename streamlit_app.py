@@ -92,7 +92,7 @@ def main():
         st.subheader("Backend Configuration")
         backend_url = st.text_input(
             "Backend URL",
-            value=st.session_state.get('backend_url', 'http://localhost:3001'),
+            value=st.session_state.get('backend_url', 'https://vr-final.onrender.com'),
             help="Enter your deployed backend URL"
         )
         st.session_state.backend_url = backend_url
