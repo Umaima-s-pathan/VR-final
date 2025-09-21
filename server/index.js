@@ -1,13 +1,18 @@
-const express = require('express');
-const multer = require('multer');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs').promises;
-const { v4: uuidv4 } = require('uuid');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegStatic = require('ffmpeg-static');
-const axios = require('axios');
-const FormData = require('form-data');
+import express from 'express';
+import multer from 'multer';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
+import axios from 'axios';
+import FormData from 'form-data';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Set FFmpeg path
 ffmpeg.setFfmpegPath(ffmpegStatic);
@@ -364,7 +369,7 @@ app.get('/api/download/:jobId', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'video/mp4');
     
-    const fileStream = require('fs').createReadStream(filePath);
+    const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
   } catch (error) {
     console.error('Download error:', error);
@@ -373,7 +378,7 @@ app.get('/api/download/:jobId', async (req, res) => {
 });
 
 // Serve React app for all other routes
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
@@ -393,4 +398,4 @@ app.listen(PORT, () => {
   console.log(`Palace VR180 server running on port ${PORT}`);
 });
 
-module.exports = app;
+export default app;

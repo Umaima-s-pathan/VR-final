@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# VR180 Processing directories
+uploads/
+outputs/
