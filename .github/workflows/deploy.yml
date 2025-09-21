@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]       # deploy on push to main
+    branches: [ master ]     # deploy on push to master (your current branch)
   workflow_dispatch:          # allow manual deployment
 
 jobs:
@@ -20,14 +20,14 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm install         # use npm install instead of npm ci to avoid lock file issues
+      run: npm install
 
     - name: Build project
       run: npm run build
 
     - name: Deploy to GitHub Pages
-      uses: peaceiris/actions-gh-pages@v6
+      uses: peaceiris/actions-gh-pages@v4  # Fixed: v4 exists, v6 doesn't
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./build   # folder to deploy
+        publish_dir: ./dist   # Fixed: Vite builds to 'dist', not 'build'
         publish_branch: gh-pages
