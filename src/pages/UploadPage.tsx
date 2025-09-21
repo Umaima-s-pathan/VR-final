@@ -67,7 +67,7 @@ const UploadPage = () => {
       const formData = new FormData();
       formData.append('video', file);
       
-      const response = await fetch('/api/upload', {
+      const response = await fetch('https://vr-final.onrender.com/api/upload', {
         method: 'POST',
         body: formData,
       });
@@ -78,7 +78,7 @@ const UploadPage = () => {
       
       const result = await response.json();
       navigate(`/processing/${result.jobId}`);
-    } catch (err) {
+    } catch {
       setError('Upload failed. Please try again.');
       setUploading(false);
     }
