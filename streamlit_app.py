@@ -74,7 +74,7 @@ def check_backend_status():
     try:
         # This would be your deployed backend URL
         backend_url = st.session_state.get('backend_url', 'http://localhost:3001')
-        response = requests.get(f"{backend_url}/api/status/test", timeout=5)
+        response = requests.get(f"{backend_url}/", timeout=5)
         return response.status_code == 200
     except:
         return False
