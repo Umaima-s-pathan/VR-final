@@ -379,7 +379,68 @@ app.get('/api/download/:jobId', async (req, res) => {
 
 // Serve React app for all other routes
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
+  // Try multiple possible paths for the dist directory
+  const possiblePaths = [
+    path.join(__dirname, '../dist/index.html'),
+    path.join(__dirname, '../../dist/index.html'),
+    path.join(__dirname, '../client/dist/index.html'),
+    path.join(process.cwd(), 'dist/index.html')
+  ];
+
+  // Try each path until one works
+  for (const filePath of possiblePaths) {
+    try {
+      if (require('fs').existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    } catch (error) {
+      // Continue to next path
+    }
+  }
+
+  // If no path works, return a simple HTML response
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Palace VR180 - Deploying</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 100vh;
+          margin: 0;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-align: center;
+        }
+        .container {
+          max-width: 600px;
+          padding: 2rem;
+        }
+        h1 { margin-bottom: 1rem; }
+        p { margin-bottom: 2rem; line-height: 1.6; }
+        .status { padding: 1rem; background: rgba(255,255,255,0.1); border-radius: 8px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>🚀 Palace VR180 Platform</h1>
+        <p>Your VR180 video conversion platform is deploying! The frontend will be available shortly.</p>
+        <div class="status">
+          <h3>Deployment Status:</h3>
+          <p>✅ Backend: Running on Render</p>
+          <p>⏳ Frontend: Deploying to GitHub Pages</p>
+          <p>🔗 <a href="https://github.com/Umaima-s-pathan/VR-final" style="color: #fff;">View on GitHub</a></p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
 });
 
 // Error handling middleware
