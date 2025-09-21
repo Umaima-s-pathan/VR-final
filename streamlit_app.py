@@ -155,12 +155,12 @@ def main():
 
         if st.button("🌐 Open Frontend", type="primary", use_container_width=True):
             st.markdown("""
-            <a href="https://your-username.github.io/palace/" target="_blank">
+            <a href="https://Umaima-s-pathan.github.io/VR-final/" target="_blank">
                 <button class="launch-button">🌐 Launch Frontend</button>
             </a>
             """, unsafe_allow_html=True)
 
-        st.info("📝 **Note**: Replace `your-username` with your actual GitHub username")
+        st.info("📝 **Note**: Frontend is deployed and ready to use!")
 
     with col2:
         st.subheader("Backend API")
