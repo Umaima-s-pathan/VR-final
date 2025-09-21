@@ -201,7 +201,7 @@ def main():
     # Getting started guide
     st.header("📋 Getting Started")
 
-    with st.expansion_container("🚀 Deployment Instructions"):
+    with st.expander("🚀 Deployment Instructions"):
         st.markdown("""
         **1. Deploy Frontend to GitHub Pages:**
         ```bash
