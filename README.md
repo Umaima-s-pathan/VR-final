@@ -176,6 +176,18 @@ Response: VR180 video file
 
 ## 🚀 Deployment
 
+### Quick Start with Streamlit Launcher (Recommended)
+```bash
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Test deployment setup
+python test_deployment.py
+
+# Run Streamlit launcher
+python run_streamlit.py
+```
+
 ### GitHub Pages (Frontend Only)
 ```bash
 npm run build
@@ -184,10 +196,18 @@ npm run deploy
 
 ### Full-Stack Deployment
 For production deployment with backend processing:
-1. Deploy backend to cloud service (AWS, Google Cloud, etc.)
+1. Deploy backend to cloud service (Railway, Render, or Heroku)
 2. Configure environment variables
 3. Set up file storage and processing queues
 4. Deploy frontend with API endpoint configuration
+
+### Hybrid Deployment (Streamlit + GitHub Pages + Cloud Backend)
+1. **Deploy Frontend**: Push to GitHub → GitHub Pages (automatic)
+2. **Deploy Backend**: Railway/Render/Heroku
+3. **Run Streamlit Launcher**: Local or cloud deployment
+4. **Access via Streamlit**: Single entry point to all services
+
+See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for detailed instructions.
 
 ## 🎯 Performance Optimizations
 
