@@ -11,6 +11,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Backend URL - Update this with your deployed backend
+BACKEND_URL = "https://vr-final.onrender.com"
+
 # Custom CSS for better styling
 st.markdown("""
 <style>
@@ -197,6 +200,74 @@ def main():
         - 📱 Responsive Design
         - 🔄 Batch Processing Support
         """)
+
+    # Video Upload Section
+    st.header("🎥 Upload & Convert Video")
+
+    st.markdown("**Upload your video directly here for immediate VR180 conversion!**")
+
+    # File uploader
+    uploaded_file = st.file_uploader(
+        "Choose a video file",
+        type=["mp4", "mov", "avi"],
+        help="Upload a video file (MP4, MOV, AVI) - Max 500MB"
+    )
+
+    if uploaded_file is not None:
+        # Show file details
+        st.success(f"✅ File uploaded: {uploaded_file.name}")
+        st.info(f"📊 File size: {uploaded_file.size / (1024*1024):.2f} MB")
+
+        # Upload button
+        if st.button("🚀 Start VR180 Conversion", type="primary", use_container_width=True):
+            with st.spinner("Uploading and processing video..."):
+                try:
+                    # Create form data
+                    files = {"video": uploaded_file}
+                    data = {"filename": uploaded_file.name}
+
+                    # Upload to backend
+                    response = requests.post(
+                        f"{BACKEND_URL}/api/upload",
+                        files=files,
+                        data=data,
+                        timeout=30
+                    )
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        st.success("✅ Upload successful!")
+                        st.balloons()
+
+                        # Show processing info
+                        st.info(f"🔄 **Job ID**: {result.get('jobId', 'N/A')}")
+                        st.info("📊 **Status**: Processing started - this may take 15-45 minutes")
+
+                        # Show next steps
+                        st.markdown("### 🎯 Next Steps:")
+                        st.markdown("1. **Wait for processing** to complete")
+                        st.markdown("2. **Check status** using the Job ID above")
+                        st.markdown("3. **Download** your VR180 video when ready")
+
+                        # Show processing stages
+                        st.markdown("### ⚡ Processing Pipeline:")
+                        stages = [
+                            "🎯 Depth Map Generation (MiDaS AI)",
+                            "👁️ Stereo Synthesis (DIBR)",
+                            "🎨 AI Outpainting & Projection",
+                            "👀 Foveated Edge Blur",
+                            "⚡ AI Upscaling (4K+ Enhancement)"
+                        ]
+
+                        for stage in stages:
+                            st.markdown(f"- {stage}")
+
+                    else:
+                        st.error(f"❌ Upload failed: {response.text}")
+
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    st.error("💡 **Tip**: Make sure your backend is running and accessible")
 
     # Getting started guide
     st.header("📋 Getting Started")
