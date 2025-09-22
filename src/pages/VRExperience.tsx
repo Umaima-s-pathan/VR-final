@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Volume2, VolumeX, Maximize, RotateCcw } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 declare global {
   namespace JSX {
@@ -18,10 +18,23 @@ declare global {
 }
 
 const VRExperience = () => {
+  const [searchParams] = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [isVRStarted, setIsVRStarted] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [videoUrl, setVideoUrl] = useState<string>('');
+
+  // Get video URL from URL parameters
+  useEffect(() => {
+    const url = searchParams.get('video');
+    if (url) {
+      setVideoUrl(url);
+    } else {
+      // Fallback to demo video if no URL provided
+      setVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Load A-Frame script
@@ -205,7 +218,7 @@ const VRExperience = () => {
             autoPlay
             playsInline
           >
-            <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
+            <source src={videoUrl} type="video/mp4" />
           </video>
         </a-assets>
 
