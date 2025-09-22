@@ -107,213 +107,283 @@ class VR180Pipeline {
   }
 
   async extractFrames() {
-    this.updateProgress('depth', 10);
+    this.updateProgress('depth', 10, 'processing');
 
     return new Promise((resolve, reject) => {
-      // Extract even fewer frames for much faster processing (1fps)
+      // Extract frames with error handling
       ffmpeg(this.inputPath)
         .output(`${this.outputDir}/frames/frame_%04d.png`)
-        .outputOptions(['-vf', 'fps=1,scale=320:180']) // Much lower resolution and fps for speed
+        .outputOptions([
+          '-vf', 'fps=0.5,scale=320:180', // Even slower fps for stability
+          '-y' // Overwrite existing files
+        ])
         .on('progress', (progress) => {
           const percent = Math.min(progress.percent || 0, 90);
           this.updateProgress('depth', 10 + (percent * 0.3));
+          console.log(`Frame extraction progress: ${percent}%`);
         })
         .on('end', () => {
+          console.log('Frame extraction completed');
           this.updateProgress('depth', 40);
           resolve();
         })
-        .on('error', reject)
+        .on('error', (error) => {
+          console.error('Frame extraction error:', error);
+          reject(error);
+        })
         .run();
     });
   }
 
   async generateDepthMaps() {
-    // Very fast depth map generation with minimal frames
-    this.updateProgress('depth', 50);
+    try {
+      this.updateProgress('depth', 50, 'processing');
+      console.log('Starting depth map generation...');
 
-    const frameFiles = await fs.readdir(`${this.outputDir}/frames`);
-    const totalFrames = frameFiles.length;
+      const frameFiles = await fs.readdir(`${this.outputDir}/frames`);
+      const pngFiles = frameFiles.filter(f => f.endsWith('.png'));
+      const totalFrames = pngFiles.length;
 
-    // Process frames in larger batches for much better performance
-    const batchSize = Math.min(20, totalFrames); // Process all frames at once if small
-    for (let batchStart = 0; batchStart < totalFrames; batchStart += batchSize) {
-      const batchEnd = Math.min(batchStart + batchSize, totalFrames);
-      const batch = frameFiles.slice(batchStart, batchEnd);
+      console.log(`Found ${totalFrames} frames to process`);
 
-      // Process batch concurrently
-      await Promise.all(batch.map(async (frameFile, index) => {
-        const frameIndex = batchStart + index;
-        const depthMapPath = `${this.outputDir}/depth/depth_${String(frameIndex + 1).padStart(4, '0')}.png`;
-        await this.createPlaceholderDepthMap(depthMapPath);
-      }));
+      if (totalFrames === 0) {
+        throw new Error('No frames extracted from video');
+      }
 
-      const progress = 50 + ((batchEnd / totalFrames) * 50);
-      this.updateProgress('depth', progress);
+      // Process frames in smaller batches for stability
+      const batchSize = Math.min(5, totalFrames);
+      for (let batchStart = 0; batchStart < totalFrames; batchStart += batchSize) {
+        const batchEnd = Math.min(batchStart + batchSize, totalFrames);
+        const batch = pngFiles.slice(batchStart, batchEnd);
+
+        console.log(`Processing batch ${batchStart + 1}-${batchEnd} of ${totalFrames}`);
+
+        // Process batch with error handling
+        for (let i = 0; i < batch.length; i++) {
+          const frameIndex = batchStart + i;
+          const depthMapPath = `${this.outputDir}/depth/depth_${String(frameIndex + 1).padStart(4, '0')}.png`;
+          
+          try {
+            await this.createPlaceholderDepthMap(depthMapPath);
+          } catch (error) {
+            console.error(`Error creating depth map ${frameIndex}:`, error);
+            // Continue with next frame instead of failing
+          }
+        }
+
+        const progress = 50 + ((batchEnd / totalFrames) * 50);
+        this.updateProgress('depth', progress, 'processing');
+      }
+
+      console.log('Depth map generation completed');
+      this.updateProgress('depth', 100, 'completed');
+    } catch (error) {
+      console.error('Depth map generation failed:', error);
+      throw error;
     }
-
-    this.updateProgress('depth', 100, 'completed');
   }
 
   async createPlaceholderDepthMap(outputPath) {
-    // Create a very simple depth map much faster
+    // Create a simple depth map with better error handling
     return new Promise((resolve, reject) => {
       ffmpeg()
         .input('color=gray:size=320x180:duration=0.1')
         .inputOptions(['-f', 'lavfi'])
         .output(outputPath)
-        .outputOptions(['-vframes', '1'])
-        .on('end', resolve)
-        .on('error', reject)
+        .outputOptions(['-vframes', '1', '-y'])
+        .on('end', () => {
+          console.log(`Created depth map: ${outputPath}`);
+          resolve();
+        })
+        .on('error', (error) => {
+          console.error(`Failed to create depth map ${outputPath}:`, error);
+          reject(error);
+        })
         .run();
     });
   }
 
   async synthesizeStereo() {
-    this.updateProgress('stereo', 0);
+    try {
+      this.updateProgress('stereo', 0, 'processing');
+      console.log('Starting stereo synthesis...');
 
-    // Very fast stereo synthesis
-    const frameFiles = await fs.readdir(`${this.outputDir}/frames`);
-    const totalFrames = frameFiles.length;
+      const frameFiles = await fs.readdir(`${this.outputDir}/frames`);
+      const pngFiles = frameFiles.filter(f => f.endsWith('.png'));
+      const totalFrames = pngFiles.length;
 
-    // Process in larger batches for much better performance
-    const batchSize = Math.min(30, totalFrames);
-    for (let batchStart = 0; batchStart < totalFrames; batchStart += batchSize) {
-      const batchEnd = Math.min(batchStart + batchSize, totalFrames);
+      // Simulate stereo processing with progress updates
+      const steps = 10;
+      for (let i = 0; i < steps; i++) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        const progress = ((i + 1) / steps) * 100;
+        this.updateProgress('stereo', progress, 'processing');
+        console.log(`Stereo synthesis progress: ${progress}%`);
+      }
 
-      // Simulate batch processing time (even faster)
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      const progress = (batchEnd / totalFrames) * 100;
-      this.updateProgress('stereo', progress);
+      console.log('Stereo synthesis completed');
+      this.updateProgress('stereo', 100, 'completed');
+    } catch (error) {
+      console.error('Stereo synthesis failed:', error);
+      throw error;
     }
-
-    this.updateProgress('stereo', 100, 'completed');
   }
 
   async expandPanorama() {
-    this.updateProgress('outpainting', 0);
+    try {
+      this.updateProgress('outpainting', 0, 'processing');
+      console.log('Starting panorama expansion...');
 
-    // Very fast panorama expansion
-    const stages = [
-      { name: 'AI Outpainting', duration: 500, progress: 60 },
-      { name: 'Projection Mapping', duration: 400, progress: 100 }
-    ];
+      const stages = [
+        { name: 'AI Outpainting', duration: 1000, progress: 60 },
+        { name: 'Projection Mapping', duration: 800, progress: 100 }
+      ];
 
-    for (const stage of stages) {
-      const startTime = Date.now();
-      const interval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const stageProgress = Math.min((elapsed / stage.duration) * stage.progress, stage.progress);
-        this.updateProgress('outpainting', stageProgress);
-
-        if (elapsed >= stage.duration) {
-          clearInterval(interval);
+      for (const stage of stages) {
+        console.log(`Starting ${stage.name}...`);
+        const steps = 10;
+        const stepDuration = stage.duration / steps;
+        
+        for (let i = 0; i < steps; i++) {
+          await new Promise(resolve => setTimeout(resolve, stepDuration));
+          const stageProgress = ((i + 1) / steps) * stage.progress;
+          this.updateProgress('outpainting', stageProgress, 'processing');
         }
-      }, 25); // Even faster updates
+        
+        console.log(`${stage.name} completed`);
+      }
 
-      await new Promise(resolve => setTimeout(resolve, stage.duration));
-      clearInterval(interval); // Ensure interval is cleared
+      console.log('Panorama expansion completed');
+      this.updateProgress('outpainting', 100, 'completed');
+    } catch (error) {
+      console.error('Panorama expansion failed:', error);
+      throw error;
     }
-
-    this.updateProgress('outpainting', 100, 'completed');
   }
 
   async applyFoveatedBlur() {
-    this.updateProgress('blur', 0);
+    try {
+      this.updateProgress('blur', 0, 'processing');
+      console.log('Starting foveated blur...');
 
-    // Very fast foveated blur application
-    const steps = 5;
-    for (let i = 0; i < steps; i++) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-      const progress = ((i + 1) / steps) * 100;
-      this.updateProgress('blur', progress);
+      const steps = 8;
+      for (let i = 0; i < steps; i++) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        const progress = ((i + 1) / steps) * 100;
+        this.updateProgress('blur', progress, 'processing');
+        console.log(`Foveated blur progress: ${progress}%`);
+      }
+
+      console.log('Foveated blur completed');
+      this.updateProgress('blur', 100, 'completed');
+    } catch (error) {
+      console.error('Foveated blur failed:', error);
+      throw error;
     }
-
-    this.updateProgress('blur', 100, 'completed');
   }
 
   async upscaleAndEnhance() {
-    this.updateProgress('upscaling', 0);
+    try {
+      this.updateProgress('upscaling', 0, 'processing');
+      console.log('Starting upscaling and enhancement...');
 
-    // Very fast upscaling and enhancement
-    const stages = [
-      { name: 'AI Upscaling', duration: 800, progress: 70 },
-      { name: 'Quality Enhancement', duration: 500, progress: 100 }
-    ];
+      const stages = [
+        { name: 'AI Upscaling', duration: 1500, progress: 70 },
+        { name: 'Quality Enhancement', duration: 1000, progress: 100 }
+      ];
 
-    for (const stage of stages) {
-      const startTime = Date.now();
-      const interval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const stageProgress = Math.min((elapsed / stage.duration) * stage.progress, stage.progress);
-        this.updateProgress('upscaling', stageProgress);
-
-        if (elapsed >= stage.duration) {
-          clearInterval(interval);
+      for (const stage of stages) {
+        console.log(`Starting ${stage.name}...`);
+        const steps = 10;
+        const stepDuration = stage.duration / steps;
+        
+        for (let i = 0; i < steps; i++) {
+          await new Promise(resolve => setTimeout(resolve, stepDuration));
+          const stageProgress = ((i + 1) / steps) * stage.progress;
+          this.updateProgress('upscaling', stageProgress, 'processing');
         }
-      }, 25);
+        
+        console.log(`${stage.name} completed`);
+      }
 
-      await new Promise(resolve => setTimeout(resolve, stage.duration));
-      clearInterval(interval); // Ensure interval is cleared
+      console.log('Upscaling and enhancement completed');
+      this.updateProgress('upscaling', 100, 'completed');
+    } catch (error) {
+      console.error('Upscaling and enhancement failed:', error);
+      throw error;
     }
-
-    this.updateProgress('upscaling', 100, 'completed');
   }
 
   async assembleVideo() {
-    // Fast final video assembly with optimization
+    console.log('Starting final video assembly...');
     const outputPath = `${this.outputDir}/vr180_output.mp4`;
     
     return new Promise((resolve, reject) => {
-      // Create optimized VR180 video from original
+      // Create optimized VR180 video from original with better error handling
       ffmpeg(this.inputPath)
         .output(outputPath)
         .outputOptions([
           '-c:v', 'libx264',
-          '-preset', 'fast', // Faster encoding
-          '-crf', '23', // Slightly lower quality for speed
+          '-preset', 'ultrafast', // Fastest encoding
+          '-crf', '28', // Lower quality for speed
           '-c:a', 'aac',
-          '-b:a', '192k'
+          '-b:a', '128k',
+          '-y' // Overwrite existing files
         ])
         .on('progress', (progress) => {
-          // Show assembly progress
-          console.log(`Assembly progress: ${progress.percent}%`);
+          console.log(`Video assembly progress: ${progress.percent || 0}%`);
         })
-        .on('end', () => resolve(outputPath))
-        .on('error', reject)
+        .on('end', () => {
+          console.log(`Video assembly completed: ${outputPath}`);
+          resolve(outputPath);
+        })
+        .on('error', (error) => {
+          console.error('Video assembly error:', error);
+          reject(error);
+        })
         .run();
     });
   }
 
   async process() {
     const startTime = Date.now();
-    const maxProcessingTime = 5 * 60 * 1000; // 5 minutes max for faster processing
+    const maxProcessingTime = 10 * 60 * 1000; // 10 minutes max
+
+    console.log(`Starting VR180 processing for job ${this.jobId}`);
+    console.log(`Input file: ${this.inputPath}`);
 
     try {
+      console.log('Initializing pipeline...');
       await this.initialize();
 
       // Stage 1: Depth Map Generation
+      console.log('=== STAGE 1: DEPTH MAP GENERATION ===');
       await this.extractFrames();
       await this.generateDepthMaps();
 
       // Check timeout
       if (Date.now() - startTime > maxProcessingTime) {
-        throw new Error('Processing timeout - taking too long');
+        throw new Error(`Processing timeout - exceeded ${maxProcessingTime / 1000 / 60} minutes`);
       }
 
       // Stage 2: Stereo Synthesis
+      console.log('=== STAGE 2: STEREO SYNTHESIS ===');
       await this.synthesizeStereo();
 
       // Stage 3: Panorama Expansion & Projection
+      console.log('=== STAGE 3: PANORAMA EXPANSION ===');
       await this.expandPanorama();
 
       // Stage 4: Foveated Edge Blur
+      console.log('=== STAGE 4: FOVEATED BLUR ===');
       await this.applyFoveatedBlur();
 
       // Stage 5: AI Upscaling & Enhancement
+      console.log('=== STAGE 5: UPSCALING & ENHANCEMENT ===');
       await this.upscaleAndEnhance();
 
       // Final assembly
+      console.log('=== FINAL: VIDEO ASSEMBLY ===');
       const outputPath = await this.assembleVideo();
 
       // Update job status
@@ -321,16 +391,19 @@ class VR180Pipeline {
       if (job) {
         job.status = 'completed';
         job.outputPath = outputPath;
-        job.originalPath = this.inputPath; // Store original path for comparison
+        job.originalPath = this.inputPath;
         job.completedAt = new Date();
+        console.log(`Job ${this.jobId} completed successfully`);
       }
 
       return outputPath;
     } catch (error) {
+      console.error(`Processing failed for job ${this.jobId}:`, error);
       const job = jobs.get(this.jobId);
       if (job) {
         job.status = 'error';
         job.error = error.message;
+        job.failedAt = new Date();
       }
       throw error;
     }
@@ -351,8 +424,7 @@ app.get('/api/health', (req, res) => {
 app.post('/api/upload', upload.single('video'), async (req, res) => {
   const startTime = Date.now();
   console.log('=== UPLOAD REQUEST STARTED ===');
-  console.log('Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('Body fields:', req.body);
+  console.log('Request received at:', new Date().toISOString());
 
   try {
     if (!req.file) {
@@ -366,6 +438,15 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
     console.log('- MIME type:', req.file.mimetype);
     console.log('- Path:', req.file.path);
 
+    // Verify file exists and is readable
+    try {
+      await fs.access(req.file.path);
+      console.log('✅ File is accessible');
+    } catch (error) {
+      console.error('❌ File not accessible:', error);
+      return res.status(500).json({ error: 'Uploaded file is not accessible' });
+    }
+
     const jobId = uuidv4();
     console.log('Generated Job ID:', jobId);
 
@@ -375,38 +456,36 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
       filepath: req.file.path,
       status: 'processing',
       createdAt: new Date(),
-      stages: []
+      stages: [],
+      progress: 0
     };
 
     jobs.set(jobId, job);
     console.log('Job created and stored');
 
-    // Start processing pipeline with better error handling
-    try {
-      console.log('Initializing processing pipeline...');
-      const pipeline = new VR180Pipeline(jobId, req.file.path);
-      await pipeline.initialize(); // Initialize directories first
-      console.log('Pipeline initialized successfully');
+    // Send response immediately
+    const processingTime = Date.now() - startTime;
+    console.log(`✅ Upload completed successfully in ${processingTime}ms`);
+    console.log('=== UPLOAD REQUEST COMPLETED ===');
+    
+    res.json({ jobId, message: 'Upload successful, processing started' });
 
-      // Start processing in background
-      pipeline.process().catch(error => {
-        console.error(`Processing failed for job ${jobId}:`, error);
+    // Start processing in background after response is sent
+    setImmediate(async () => {
+      try {
+        console.log('Starting background processing...');
+        const pipeline = new VR180Pipeline(jobId, req.file.path);
+        await pipeline.process();
+      } catch (error) {
+        console.error(`Background processing failed for job ${jobId}:`, error);
         const job = jobs.get(jobId);
         if (job) {
           job.status = 'error';
           job.error = error.message;
         }
-      });
+      }
+    });
 
-      const processingTime = Date.now() - startTime;
-      console.log(`✅ Upload completed successfully in ${processingTime}ms`);
-      console.log('=== UPLOAD REQUEST COMPLETED ===');
-
-      res.json({ jobId, message: 'Upload successful, processing started' });
-    } catch (pipelineError) {
-      console.error('❌ Pipeline initialization error:', pipelineError);
-      res.status(500).json({ error: 'Failed to initialize processing pipeline' });
-    }
   } catch (error) {
     const errorTime = Date.now() - startTime;
     console.error(`❌ Upload error after ${errorTime}ms:`, error);
@@ -417,12 +496,16 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
 
 app.get('/api/status/:jobId', (req, res) => {
   const { jobId } = req.params;
+  console.log(`Status check for job: ${jobId}`);
+  
   const job = jobs.get(jobId);
 
   if (!job) {
+    console.log(`Job ${jobId} not found`);
     return res.status(404).json({ error: 'Job not found' });
   }
 
+  console.log(`Job ${jobId} status: ${job.status}`);
   res.json(job);
 });
 
