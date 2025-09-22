@@ -188,7 +188,7 @@ const UploadPage = () => {
                   </div>
                 </div>
                 <p className="text-yellow-300 text-sm mt-4">
-                  ⚡ Estimated processing time: 15-45 minutes depending on video length
+                  ⚡ Estimated processing time: 2-5 minutes (optimized for speed)
                 </p>
               </div>
               

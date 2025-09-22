@@ -28,8 +28,13 @@ const VRExperience = () => {
   // Get video URL from URL parameters
   useEffect(() => {
     const url = searchParams.get('video');
+    const jobId = searchParams.get('jobId');
+    
     if (url) {
       setVideoUrl(url);
+    } else if (jobId) {
+      // If we have a jobId, construct the download URL
+      setVideoUrl(`https://vr-final.onrender.com/api/download/${jobId}`);
     } else {
       // Fallback to demo video if no URL provided
       setVideoUrl('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
@@ -217,8 +222,12 @@ const VRExperience = () => {
             muted={isMuted}
             autoPlay
             playsInline
+            onLoadStart={() => console.log('Video loading started')}
+            onCanPlay={() => console.log('Video can play')}
+            onError={(e) => console.error('Video error:', e)}
           >
             <source src={videoUrl} type="video/mp4" />
+            Your browser does not support the video tag.
           </video>
         </a-assets>
 
