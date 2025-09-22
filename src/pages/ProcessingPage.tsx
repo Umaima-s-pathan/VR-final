@@ -68,55 +68,54 @@ const ProcessingPage = () => {
       return;
     }
 
-    // Simulate processing stages
-    const simulateProcessing = () => {
-      let currentStageIndex = 0;
-      let stageProgress = 0;
+    // Real API polling for job status
+    const pollJobStatus = async () => {
+      try {
+        const response = await fetch(`https://vr-final.onrender.com/api/status/${jobId}`);
+        if (response.ok) {
+          const jobData = await response.json();
 
-      const updateProgress = () => {
-        setStages(prevStages => {
-          const newStages = [...prevStages];
-          
-          if (currentStageIndex < newStages.length) {
-            // Update current stage
-            newStages[currentStageIndex].status = 'processing';
-            newStages[currentStageIndex].progress = stageProgress;
-            
-            // Complete current stage and move to next
-            if (stageProgress >= 100) {
-              newStages[currentStageIndex].status = 'completed';
-              currentStageIndex++;
-              stageProgress = 0;
-            } else {
-              stageProgress += Math.random() * 15 + 5; // Random progress increment
-            }
+          // Update stages based on real backend data
+          setStages(prevStages => {
+            return prevStages.map(stage => {
+              const backendStage = jobData.stages?.find((s: any) => s.name === stage.id);
+              if (backendStage) {
+                return {
+                  ...stage,
+                  status: backendStage.status,
+                  progress: backendStage.progress || 0
+                };
+              }
+              return stage;
+            });
+          });
+
+          // Calculate overall progress
+          const completedStages = stages.filter(s => s.status === 'completed').length;
+          const processingStages = stages.filter(s => s.status === 'processing').length;
+          const overall = (completedStages * 100 + processingStages * 50) / stages.length;
+          setOverallProgress(Math.min(overall, 100));
+
+          // Check if job is completed
+          if (jobData.status === 'completed') {
+            setIsCompleted(true);
+            setDownloadUrl(`https://vr-final.onrender.com/api/download/${jobId}`);
+          } else if (jobData.status === 'error') {
+            setError(jobData.error || 'Processing failed');
           }
-          
-          return newStages;
-        });
-
-        // Calculate overall progress
-        const totalStages = stages.length;
-        const completedStages = currentStageIndex;
-        const currentStageProgress = Math.min(stageProgress, 100);
-        const overall = ((completedStages * 100) + currentStageProgress) / totalStages;
-        setOverallProgress(Math.min(overall, 100));
-
-        // Check if all stages are completed
-        if (currentStageIndex >= stages.length) {
-          setIsCompleted(true);
-          setDownloadUrl(`/api/download/${jobId}`);
-          return;
+        } else {
+          setError('Failed to fetch job status');
         }
-
-        // Continue processing
-        setTimeout(updateProgress, 1000 + Math.random() * 2000);
-      };
-
-      updateProgress();
+      } catch (error) {
+        setError('Failed to connect to processing server');
+      }
     };
 
-    simulateProcessing();
+    // Poll immediately and then every 5 seconds
+    pollJobStatus();
+    const interval = setInterval(pollJobStatus, 5000);
+
+    return () => clearInterval(interval);
   }, [jobId, navigate]);
 
   const getStatusIcon = (status: string) => {
