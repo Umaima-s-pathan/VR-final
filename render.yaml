@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: palace-vr180-backend
+    env: node
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    port: 3001
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
