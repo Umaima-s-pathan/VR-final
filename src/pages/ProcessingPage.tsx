@@ -256,6 +256,7 @@ const ProcessingPage = () => {
                 {downloadUrl && (
                   <a
                     href={downloadUrl}
+                    download={`vr180_converted_${Date.now()}.mp4`}
                     className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 flex items-center justify-center space-x-2"
                   >
                     <Download className="h-5 w-5" />
@@ -264,7 +265,7 @@ const ProcessingPage = () => {
                 )}
                 
                 <Link
-                  to={`/experience?video=${encodeURIComponent(downloadUrl || '')}`}
+                  to={`/experience?video=${encodeURIComponent(downloadUrl || '')}&jobId=${jobId}`}
                   className="border-2 border-white/30 hover:border-white/60 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 hover:bg-white/10 flex items-center justify-center space-x-2"
                 >
                   <Eye className="h-5 w-5" />
