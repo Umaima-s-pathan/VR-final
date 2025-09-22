@@ -81,15 +81,27 @@ def check_backend_status():
         try:
             response = requests.get(f"{backend_url}/api/health", timeout=10)
             if response.status_code == 200:
-                return True
+                try:
+                    # Check if response is JSON (healthy backend)
+                    response.json()
+                    return True, "healthy"
+                except:
+                    # Response is HTML (deploying or error page)
+                    return False, "deploying"
         except:
             pass
 
         # Fallback to root endpoint
         response = requests.get(f"{backend_url}/", timeout=10)
-        return response.status_code == 200
+        if response.status_code == 200:
+            # Check if it's the deployment page
+            if "deploying" in response.text.lower() or "deployment status" in response.text.lower():
+                return False, "deploying"
+            return True, "unknown"
+
+        return False, "offline"
     except:
-        return False
+        return False, "error"
 
 def main():
     # Header
@@ -113,11 +125,16 @@ def main():
         if st.button("Check Backend Status", type="secondary"):
             with st.spinner("Checking backend status..."):
                 time.sleep(1)
-                is_online = check_backend_status()
+                is_online, status = check_backend_status()
                 if is_online:
                     st.success("✅ Backend is online!")
                 else:
-                    st.error("❌ Backend is offline or unreachable")
+                    if status == "deploying":
+                        st.warning("⏳ Backend is deploying... Please wait a few minutes and try again.")
+                    elif status == "error":
+                        st.error("❌ Backend connection error. Check the URL.")
+                    else:
+                        st.error("❌ Backend is offline or unreachable")
 
         st.divider()
 
