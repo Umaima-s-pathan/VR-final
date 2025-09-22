@@ -226,13 +226,28 @@ def main():
                     files = {"video": uploaded_file}
                     data = {"filename": uploaded_file.name}
 
-                    # Upload to backend
-                    response = requests.post(
-                        f"{BACKEND_URL}/api/upload",
-                        files=files,
-                        data=data,
-                        timeout=30
-                    )
+                    # Upload to backend with longer timeout and retry logic
+                    max_retries = 3
+                    retry_delay = 5
+
+                    for attempt in range(max_retries):
+                        try:
+                            st.info(f"📤 Upload attempt {attempt + 1}/{max_retries}...")
+                            response = requests.post(
+                                f"{BACKEND_URL}/api/upload",
+                                files=files,
+                                data=data,
+                                timeout=60  # Increased timeout to 60 seconds
+                            )
+                            break  # Success, exit retry loop
+                        except requests.exceptions.Timeout:
+                            if attempt < max_retries - 1:
+                                st.warning(f"⏰ Upload timed out. Retrying in {retry_delay} seconds...")
+                                time.sleep(retry_delay)
+                                continue
+                            else:
+                                raise  # Re-raise the last timeout error
+
 
                     if response.status_code == 200:
                         result = response.json()
