@@ -20,9 +20,21 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Middleware with enhanced CORS
+app.use(cors({
+  origin: [
+    'https://vr-final-od3uhxbrfhfjddekcodkjf.streamlit.app',
+    'https://umaima-s-pathan.github.io',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('dist'));
 
 // Storage configuration
@@ -311,16 +323,38 @@ class VR180Pipeline {
   }
 }
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.0'
+  });
+});
+
 // Routes
 app.post('/api/upload', upload.single('video'), async (req, res) => {
+  const startTime = Date.now();
+  console.log('=== UPLOAD REQUEST STARTED ===');
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body fields:', req.body);
+
   try {
     if (!req.file) {
+      console.error('No file received');
       return res.status(400).json({ error: 'No video file uploaded' });
     }
 
-    console.log('File uploaded:', req.file.originalname, 'Size:', req.file.size);
+    console.log('✅ File received successfully:');
+    console.log('- Original name:', req.file.originalname);
+    console.log('- Size:', req.file.size, 'bytes');
+    console.log('- MIME type:', req.file.mimetype);
+    console.log('- Path:', req.file.path);
 
     const jobId = uuidv4();
+    console.log('Generated Job ID:', jobId);
+
     const job = {
       id: jobId,
       filename: req.file.originalname,
@@ -331,11 +365,14 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
     };
 
     jobs.set(jobId, job);
+    console.log('Job created and stored');
 
     // Start processing pipeline with better error handling
     try {
+      console.log('Initializing processing pipeline...');
       const pipeline = new VR180Pipeline(jobId, req.file.path);
       await pipeline.initialize(); // Initialize directories first
+      console.log('Pipeline initialized successfully');
 
       // Start processing in background
       pipeline.process().catch(error => {
@@ -347,13 +384,19 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
         }
       });
 
+      const processingTime = Date.now() - startTime;
+      console.log(`✅ Upload completed successfully in ${processingTime}ms`);
+      console.log('=== UPLOAD REQUEST COMPLETED ===');
+
       res.json({ jobId, message: 'Upload successful, processing started' });
     } catch (pipelineError) {
-      console.error('Pipeline initialization error:', pipelineError);
+      console.error('❌ Pipeline initialization error:', pipelineError);
       res.status(500).json({ error: 'Failed to initialize processing pipeline' });
     }
   } catch (error) {
-    console.error('Upload error:', error);
+    const errorTime = Date.now() - startTime;
+    console.error(`❌ Upload error after ${errorTime}ms:`, error);
+    console.log('=== UPLOAD REQUEST FAILED ===');
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -75,9 +75,18 @@ st.markdown("""
 def check_backend_status():
     """Check if the backend service is running"""
     try:
-        # This would be your deployed backend URL
-        backend_url = st.session_state.get('backend_url', 'http://localhost:3001')
-        response = requests.get(f"{backend_url}/", timeout=5)
+        backend_url = st.session_state.get('backend_url', 'https://vr-final.onrender.com')
+
+        # First try the health endpoint
+        try:
+            response = requests.get(f"{backend_url}/api/health", timeout=10)
+            if response.status_code == 200:
+                return True
+        except:
+            pass
+
+        # Fallback to root endpoint
+        response = requests.get(f"{backend_url}/", timeout=10)
         return response.status_code == 200
     except:
         return False
@@ -233,11 +242,20 @@ def main():
                     for attempt in range(max_retries):
                         try:
                             st.info(f"📤 Upload attempt {attempt + 1}/{max_retries}...")
+
+                            # First, wake up the backend with a simple request
+                            try:
+                                requests.get(f"{BACKEND_URL}/", timeout=10)
+                                st.info("✅ Backend is awake and ready!")
+                            except:
+                                st.warning("⚠️ Backend might be sleeping, waking it up...")
+
+                            # Now try the upload
                             response = requests.post(
                                 f"{BACKEND_URL}/api/upload",
                                 files=files,
                                 data=data,
-                                timeout=60  # Increased timeout to 60 seconds
+                                timeout=300  # Increased timeout to 5 minutes for large files
                             )
                             break  # Success, exit retry loop
                         except requests.exceptions.Timeout:
@@ -247,6 +265,13 @@ def main():
                                 continue
                             else:
                                 raise  # Re-raise the last timeout error
+                        except requests.exceptions.ConnectionError:
+                            if attempt < max_retries - 1:
+                                st.warning(f"🔌 Connection failed. Retrying in {retry_delay} seconds...")
+                                time.sleep(retry_delay)
+                                continue
+                            else:
+                                raise  # Re-raise the last connection error
 
 
                     if response.status_code == 200:
