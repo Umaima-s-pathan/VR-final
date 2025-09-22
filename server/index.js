@@ -318,6 +318,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
       return res.status(400).json({ error: 'No video file uploaded' });
     }
 
+    console.log('File uploaded:', req.file.originalname, 'Size:', req.file.size);
+
     const jobId = uuidv4();
     const job = {
       id: jobId,
@@ -330,16 +332,29 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
 
     jobs.set(jobId, job);
 
-    // Start processing pipeline
-    const pipeline = new VR180Pipeline(jobId, req.file.path);
-    pipeline.process().catch(error => {
-      console.error(`Processing failed for job ${jobId}:`, error);
-    });
+    // Start processing pipeline with better error handling
+    try {
+      const pipeline = new VR180Pipeline(jobId, req.file.path);
+      await pipeline.initialize(); // Initialize directories first
 
-    res.json({ jobId, message: 'Upload successful, processing started' });
+      // Start processing in background
+      pipeline.process().catch(error => {
+        console.error(`Processing failed for job ${jobId}:`, error);
+        const job = jobs.get(jobId);
+        if (job) {
+          job.status = 'error';
+          job.error = error.message;
+        }
+      });
+
+      res.json({ jobId, message: 'Upload successful, processing started' });
+    } catch (pipelineError) {
+      console.error('Pipeline initialization error:', pipelineError);
+      res.status(500).json({ error: 'Failed to initialize processing pipeline' });
+    }
   } catch (error) {
     console.error('Upload error:', error);
-    res.status(500).json({ error: 'Upload failed' });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
