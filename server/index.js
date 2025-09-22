@@ -343,7 +343,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Routes
+// API Routes
 app.post('/api/upload', upload.single('video'), async (req, res) => {
   const startTime = Date.now();
   console.log('=== UPLOAD REQUEST STARTED ===');
@@ -433,10 +433,10 @@ app.get('/api/download/:jobId', async (req, res) => {
   try {
     const filePath = job.outputPath;
     const filename = `vr180_${job.filename}`;
-    
+
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'video/mp4');
-    
+
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
   } catch (error) {
@@ -445,7 +445,19 @@ app.get('/api/download/:jobId', async (req, res) => {
   }
 });
 
-// Serve React app for all other routes
+// Error handling middleware
+app.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File too large. Maximum size is 500MB.' });
+    }
+  }
+
+  console.error('Server error:', error);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Serve React app for all other routes (must be last)
 app.use((req, res) => {
   // Try multiple possible paths for the dist directory
   const possiblePaths = [
@@ -511,18 +523,7 @@ app.use((req, res) => {
   `);
 });
 
-// Error handling middleware
-app.use((error, req, res, next) => {
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large. Maximum size is 500MB.' });
-    }
-  }
-  
-  console.error('Server error:', error);
-  res.status(500).json({ error: 'Internal server error' });
-});
-
+// Start server
 app.listen(PORT, () => {
   console.log(`Palace VR180 server running on port ${PORT}`);
 });
