@@ -2,8 +2,8 @@ services:
   - type: web
     name: palace-vr180-backend
     env: node
-    buildCommand: npm install  # Install at root level
-    startCommand: cd server && npm start  # Run from server directory
+    buildCommand: npm install
+    startCommand: node server/index.js
     port: 3001
     healthCheckPath: /api/health
     autoDeploy: true
