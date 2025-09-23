@@ -125,9 +125,12 @@ class VR180Pipeline {
   }
 
   updateProgress(stageName, progress, status = 'processing') {
+    // Ensure progress is always between 0 and 100
+    const clampedProgress = Math.min(Math.max(progress, 0), 100);
+
     const stage = this.stages.find(s => s.name === stageName);
     if (stage) {
-      stage.progress = progress;
+      stage.progress = clampedProgress;
       stage.status = status;
     }
 
@@ -137,7 +140,7 @@ class VR180Pipeline {
       job.lastUpdated = new Date();
       const completed = this.stages.filter(s => s.status === 'completed').length;
       job.progress = Math.round((completed / this.stages.length) * 100);
-      console.log(`[${this.jobId}] ${stageName}: ${progress}% (${status})`);
+      console.log(`[${this.jobId}] ${stageName}: ${clampedProgress}% (${status}) - Job progress: ${job.progress}%`);
 
       // Save to file after each update
       saveJobsToFile();
@@ -248,7 +251,7 @@ class VR180Pipeline {
   }
 
   async upscaleAndEnhance() {
-    this.updateProgress('upscaling', 0, 'processing');
+    this.updateProgress('upscaling', 10, 'processing'); // Start at 10% instead of 0
     const outputPath = `${this.outputDir}/final_vr180.mp4`;
     console.log(`[${this.jobId}] Starting AI upscaling to ${outputPath}...`);
 
@@ -263,16 +266,17 @@ class VR180Pipeline {
             '-y' // Overwrite output
           ])
         .on('progress', (progress) => {
-          const percent = Math.min(progress.percent || 0, 90);
-          const stageProgress = 10 + Math.round(percent * 0.9); // 10-100% range
-          this.updateProgress('upscaling', Math.min(stageProgress, 100), 'processing');
-          console.log(`[${this.jobId}] Upscaling progress: ${Math.round(percent)}% (stage: ${stageProgress}%)`);
+          const percent = Math.min(Math.max(progress.percent || 0, 0), 100); // Clamp to 0-100
+          const stageProgress = Math.min(10 + Math.round(percent * 0.9), 100); // 10-100% range, max 100
+          this.updateProgress('upscaling', stageProgress, 'processing');
+          console.log(`[${this.jobId}] Upscaling progress: ${percent}% (stage: ${stageProgress}%)`);
         })
-          .on('end', () => {
-            console.log(`[${this.jobId}] Upscaling complete: ${outputPath}`);
-            this.updateProgress('upscaling', 100, 'completed');
-            resolve(null);
-          })
+        .on('end', () => {
+          console.log(`[${this.jobId}] Upscaling complete: ${outputPath}`);
+          this.updateProgress('upscaling', 100, 'completed');
+          console.log(`[${this.jobId}] All stages completed successfully`);
+          resolve(null);
+        })
           .on('error', (err) => {
             console.error(`[${this.jobId}] FFmpeg upscaling error:`, err.message);
             // Fallback: Copy input as "upscaled" output (ensures job success for demo)
