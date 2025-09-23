@@ -167,11 +167,6 @@ const ProcessingPage = () => {
             }
           </p>
         </div>
-
-                      style={{ width: `${overallProgress}%` }}
-            ></div>
-          </div>
-        </div>
         {/* Processing Stages (your original UI, updated from polling) */}
         <div className="space-y-4 mb-8">
           {stages.map((stage, index) => {
