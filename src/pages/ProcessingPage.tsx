@@ -65,6 +65,11 @@ const ProcessingPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string>('queued');
 
+  // Helper: Clamp progress to 0-100% (prevents overflow)
+  const clampProgress = (value: number): number => {
+    return Math.min(Math.max(value || 0, 0), 100);  // FIX: Double-clamp for safety
+  };
+
   // Polling function with useCallback (avoids stale closures)
   const pollJobStatus = useCallback(async () => {
     if (!jobId) return;
@@ -78,15 +83,23 @@ const ProcessingPage = () => {
       }
       const jobData = await response.json();
 
-      // Update stages from backend
+      // Update stages from backend with CLAMPING
       setStages(prevStages => {
         const updatedStages = prevStages.map(stage => {
           const backendStage = jobData.stages?.find((s: any) => s.name === stage.id);
           if (backendStage) {
+            const rawProgress = backendStage.progress || 0;
+            const clampedProgress = clampProgress(rawProgress);  // FIX: Clamp here to prevent >100%
+            
+            // Debug log (remove after testing)
+            if (stage.id === 'upscaling') {
+              console.log(`Upscaling raw: ${rawProgress}%, clamped: ${clampedProgress}%`);  // FIX: Track values
+            }
+            
             return {
               ...stage,
               status: backendStage.status,
-              progress: backendStage.progress || 0
+              progress: clampedProgress  // FIX: Use clamped value
             };
           }
           return stage;
@@ -94,7 +107,7 @@ const ProcessingPage = () => {
         return updatedStages;
       });
 
-      // Update overall progress (use current snapshot)
+      // Update overall progress (use current snapshot) - already clamped
       setJobStatus(jobData.status || 'processing');
       const currentStages = stages; // Current state snapshot
       const completedStages = currentStages.filter(s => s.status === 'completed').length;
@@ -116,7 +129,7 @@ const ProcessingPage = () => {
       setError(errorMsg);
       console.error(`Polling error for job ${jobId}:`, err);
     }
-  }, [jobId, stages]);
+  }, [jobId, stages]);  // FIX: Keep dependency on stages for reactivity
 
   useEffect(() => {
     if (!jobId) {
@@ -186,16 +199,16 @@ const ProcessingPage = () => {
           </p>
         </div>
 
-        {/* Overall Progress */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 mb-8">
+        {/* Overall Progress - Already clamped, add overflow-hidden for safety */}
+        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 mb-8 overflow-hidden">  {/* FIX: overflow-hidden */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-semibold text-white">Overall Progress</h3>
             <span className="text-2xl font-bold text-purple-400">{Math.round(overallProgress)}%</span>
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-3">
+          <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">  {/* FIX: overflow-hidden on container */}
             <div 
               className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${overallProgress}%` }}
+              style={{ width: `${clampProgress(overallProgress)}%` }}  // FIX: Clamp here too
             />
           </div>
         </div>
@@ -204,6 +217,8 @@ const ProcessingPage = () => {
         <div className="space-y-4 mb-8">
           {stages.map((stage) => {
             const StageIcon = stage.icon;
+            const displayProgress = clampProgress(stage.progress);  // FIX: Clamp for render (double-safety)
+            
             return (
               <div
                 key={stage.id}
@@ -213,7 +228,7 @@ const ProcessingPage = () => {
                     : stage.status === 'completed'
                     ? 'border-green-400/50 bg-green-400/5'
                     : 'border-white/10'
-                }`}
+                } overflow-hidden`}  // FIX: overflow-hidden on card
               >
                 <div className="flex items-center space-x-4">
                   <div className={`p-3 rounded-lg ${
@@ -234,12 +249,22 @@ const ProcessingPage = () => {
                     <p className="text-gray-300 text-sm mb-2">{stage.description}</p>
                     
                     {stage.status === 'processing' && (
-                      <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden relative">  {/* FIX: overflow-hidden + relative for positioning */}
                         <div 
-                          className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${stage.progress}%` }}
+                          className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300 absolute inset-0"  // FIX: absolute for precise width
+                          style={{ 
+                            width: `${displayProgress}%`,  // FIX: Use clamped displayProgress
+                            left: 0,
+                            backgroundSize: '200% 100%',  // Optional: Gradient animation
+                            animation: displayProgress >= 100 ? 'none' : 'gradient-shift 2s ease infinite'  // Optional: Animate if <100
+                          }}
                         />
                       </div>
+                    )}
+                    
+                    {/* Show progress % for processing stages (optional, for clarity) */}
+                    {stage.status === 'processing' && (
+                      <p className="text-sm text-purple-300 mt-1">{displayProgress}% Complete</p>  // FIX: Show clamped %
                     )}
                   </div>
                 </div>
@@ -282,6 +307,15 @@ const ProcessingPage = () => {
           </div>
         )}
       </div>
+
+      {/* Optional: Custom CSS for gradient animation (add to your global CSS if wanted) */}
+      <style jsx>{`
+        @keyframes gradient-shift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>  // FIX: Optional animation (remove if not needed)
     </div>
   );
 };
