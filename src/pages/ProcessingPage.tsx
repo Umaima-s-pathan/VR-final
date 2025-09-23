@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Download, CheckCircle, Clock, AlertCircle, Eye, Cpu, Palette, Zap, Sparkles } from 'lucide-react';
-
+const API_BASE = 'https://vr-final.onrender.com/api'; // Absolute Render URL
 interface ProcessingStage {
   id: string;
   name: string;
@@ -10,9 +10,8 @@ interface ProcessingStage {
   status: 'pending' | 'processing' | 'completed' | 'error';
   progress: number;
 }
-
 const ProcessingPage = () => {
-  const { jobId } = useParams();
+  const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const [stages, setStages] = useState<ProcessingStage[]>([
     {
@@ -20,9 +19,10 @@ const ProcessingPage = () => {
       name: 'Depth Map Generation',
       description: 'Analyzing video frames with MiDaS AI to create accurate depth maps',
       icon: Eye,
-      status: 'processing',
+      status: 'pending',
       progress: 0
     },
+
     {
       id: 'stereo',
       name: 'Stereo Synthesis',
@@ -47,6 +47,7 @@ const ProcessingPage = () => {
       status: 'pending',
       progress: 0
     },
+
     {
       id: 'upscaling',
       name: 'AI Upscaling & Enhancement',
@@ -61,63 +62,57 @@ const ProcessingPage = () => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
+  const [jobStatus, setJobStatus] = useState<string>('queued'); // Track overall job status
   useEffect(() => {
     if (!jobId) {
       navigate('/upload');
       return;
     }
-
-    // Real API polling for job status
+    // Poll job status from backend (async handling)
     const pollJobStatus = async () => {
       try {
-        const response = await fetch(`https://vr-final.onrender.com/api/status/${jobId}`);
-        if (response.ok) {
-          const jobData = await response.json();
-
-          // Update stages based on real backend data
-          setStages(prevStages => {
-            return prevStages.map(stage => {
-              const backendStage = jobData.stages?.find((s: any) => s.name === stage.id);
-              if (backendStage) {
-                return {
-                  ...stage,
-                  status: backendStage.status,
-                  progress: backendStage.progress || 0
-                };
-              }
-              return stage;
-            });
-          });
-
-          // Calculate overall progress
-          const completedStages = stages.filter(s => s.status === 'completed').length;
-          const processingStages = stages.filter(s => s.status === 'processing').length;
-          const overall = (completedStages * 100 + processingStages * 50) / stages.length;
-          setOverallProgress(Math.min(overall, 100));
-
-          // Check if job is completed
-          if (jobData.status === 'completed') {
-            setIsCompleted(true);
-            setDownloadUrl(`https://vr-final.onrender.com/api/download/${jobId}`);
-          } else if (jobData.status === 'error') {
-            setError(jobData.error || 'Processing failed');
-          }
-        } else {
-          setError('Failed to fetch job status');
+        const response = await fetch(`${API_BASE}/status/${jobId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch job status');
         }
-      } catch (error) {
-        setError('Failed to connect to processing server');
+        const jobData = await response.json();
+        // Update stages from backend data (your original logic)
+        setStages(prevStages => {
+          return prevStages.map(stage => {
+            const backendStage = jobData.stages?.find((s: any) => s.name === stage.id);
+            if (backendStage) {
+              return {
+                ...stage,
+                status: backendStage.status,
+                progress: backendStage.progress || 0
+              };
+            }
+            return stage;
+          });
+        });
+
+        // Update overall progress and status
+        setJobStatus(jobData.status || 'processing');
+        const completedStages = stages.filter(s => s.status === 'completed').length;
+        const processingStages = stages.filter(s => s.status === 'processing').length;
+        const overall = Math.min(((completedStages * 100 + processingStages * 50) / stages.length), 100);
+        setOverallProgress(overall);
+        // Handle completion
+        if (jobData.status === 'completed') {
+          setIsCompleted(true);
+          setDownloadUrl(`${API_BASE}/download/${jobId}`);
+        } else if (jobData.status === 'failed') {
+          setError(jobData.error || 'Processing failed');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to connect to processing server');
       }
     };
-
-    // Poll immediately and then every 5 seconds
-    pollJobStatus();
-    const interval = setInterval(pollJobStatus, 5000);
-
+    // Poll every 3s (your original interval, but with absolute URL)
+    const interval = setInterval(pollJobStatus, 3000);
+    pollJobStatus(); // Initial fetch
     return () => clearInterval(interval);
-  }, [jobId, navigate]);
-
+  }, [jobId, navigate, stages]);
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -161,7 +156,6 @@ const ProcessingPage = () => {
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Home</span>
         </Link>
-
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
             {isCompleted ? 'Conversion Complete!' : 'Processing Your Video'}
@@ -174,21 +168,11 @@ const ProcessingPage = () => {
           </p>
         </div>
 
-        {/* Overall Progress */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-white">Overall Progress</h3>
-            <span className="text-2xl font-bold text-purple-400">{Math.round(overallProgress)}%</span>
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-3">
-            <div 
-              className="bg-gradient-to-r from-purple-500 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${overallProgress}%` }}
+                      style={{ width: `${overallProgress}%` }}
             ></div>
           </div>
         </div>
-
-        {/* Processing Stages */}
+        {/* Processing Stages (your original UI, updated from polling) */}
         <div className="space-y-4 mb-8">
           {stages.map((stage, index) => {
             const StageIcon = stage.icon;
@@ -211,13 +195,7 @@ const ProcessingPage = () => {
                       ? 'bg-green-500/20'
                       : 'bg-gray-500/20'
                   }`}>
-                    <StageIcon className={`h-6 w-6 ${
-                      stage.status === 'processing' 
-                        ? 'text-purple-400' 
-                        : stage.status === 'completed'
-                        ? 'text-green-400'
-                        : 'text-gray-400'
-                    }`} />
+                    {getStatusIcon(stage.status)}
                   </div>
                   
                   <div className="flex-1">
@@ -234,15 +212,14 @@ const ProcessingPage = () => {
                           style={{ width: `${stage.progress}%` }}
                         ></div>
                       </div>
-                    )}
+                   )}
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
-
-        {/* Completion Actions */}
+        {/* Completion Actions (your original UI) */}
         {isCompleted && (
           <div className="bg-gradient-to-r from-green-500/20 to-blue-500/20 backdrop-blur-lg rounded-2xl p-8 border border-green-500/20">
             <div className="text-center space-y-6">
@@ -263,7 +240,7 @@ const ProcessingPage = () => {
                     <span>Download VR180 Video</span>
                   </a>
                 )}
-                
+
                 <Link
                   to={`/experience?video=${encodeURIComponent(downloadUrl || '')}&jobId=${jobId}`}
                   className="border-2 border-white/30 hover:border-white/60 text-white px-8 py-4 rounded-full text-lg font-semibold transition-all duration-300 hover:bg-white/10 flex items-center justify-center space-x-2"
@@ -279,5 +256,4 @@ const ProcessingPage = () => {
     </div>
   );
 };
-
 export default ProcessingPage;
