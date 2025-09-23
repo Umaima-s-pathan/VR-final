@@ -2,14 +2,13 @@ import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Film, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
+const API_BASE = 'https://vr-final.onrender.com/api'; // Absolute Render URL for deployed backend
 const UploadPage = () => {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -30,7 +29,6 @@ const UploadPage = () => {
       validateAndSetFile(droppedFile);
     }
   }, []);
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       validateAndSetFile(e.target.files[0]);
@@ -57,17 +55,18 @@ const UploadPage = () => {
     setFile(selectedFile);
   };
 
+  // Updated async upload: Sends to backend, gets jobId immediately, navigates to processing
   const handleUpload = async () => {
     if (!file) return;
     
     setUploading(true);
     setError(null);
     
+    const formData = new FormData();
+    formData.append('video', file);
+    
     try {
-      const formData = new FormData();
-      formData.append('video', file);
-      
-      const response = await fetch('https://vr-final.onrender.com/api/upload', {
+      const response = await fetch(`${API_BASE}/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -77,9 +76,11 @@ const UploadPage = () => {
       }
       
       const result = await response.json();
-      navigate(`/processing/${result.jobId}`);
-    } catch {
-      setError('Upload failed. Please try again.');
+      // Backend returns { jobId } immediately – no blocking!
+      navigate(`/processing/${result.jobId}`); // Your original navigation to processing page
+    } catch (err: any) {
+      setError(err.message || 'Upload failed. Please try again.');
+    } finally {
       setUploading(false);
     }
   };
@@ -102,7 +103,6 @@ const UploadPage = () => {
           <ArrowLeft className="h-4 w-4" />
           <span>Back to Home</span>
         </Link>
-
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
             Upload Your Video
@@ -140,6 +140,7 @@ const UploadPage = () => {
                 className="hidden"
                 id="file-upload"
               />
+
               <label
                 htmlFor="file-upload"
                 className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3 rounded-full font-semibold cursor-pointer transition-all duration-300 inline-block"
@@ -162,7 +163,7 @@ const UploadPage = () => {
                 </div>
                 <CheckCircle className="h-6 w-6 text-green-400" />
               </div>
-              
+
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6">
                 <h4 className="text-lg font-semibold text-white mb-3">Processing Pipeline</h4>
                 <div className="space-y-2 text-sm text-gray-300">
@@ -187,8 +188,9 @@ const UploadPage = () => {
                     <span>Stage 5: AI Upscaling (4K+ Enhancement)</span>
                   </div>
                 </div>
+
                 <p className="text-yellow-300 text-sm mt-4">
-                  ⚡ Estimated processing time: 2-5 minutes (optimized for speed)
+                  ⚡ Estimated processing time: 15-30 seconds (optimized for demo)
                 </p>
               </div>
               
@@ -209,7 +211,7 @@ const UploadPage = () => {
                     </>
                   )}
                 </button>
-                
+
                 <button
                   onClick={() => setFile(null)}
                   className="px-6 py-4 border border-gray-600 hover:border-gray-500 text-gray-300 hover:text-white rounded-lg transition-colors"
@@ -231,5 +233,4 @@ const UploadPage = () => {
     </div>
   );
 };
-
 export default UploadPage;
