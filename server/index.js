@@ -66,8 +66,35 @@ const upload = multer({
   }
 });
 
-// Jobs storage (in-memory for demo; use DB in production)
-const jobs = new Map();
+// Jobs storage (file-based for persistence)
+const JOBS_FILE = 'jobs.json';
+let jobs = new Map();
+
+// File operations for persistent storage
+async function loadJobsFromFile() {
+  try {
+    const data = await fs.readFile(JOBS_FILE, 'utf8');
+    const jobsData = JSON.parse(data);
+    jobs = new Map(Object.entries(jobsData));
+    console.log(`Loaded ${jobs.size} jobs from file`);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error('Error loading jobs from file:', error);
+    }
+    jobs = new Map();
+    console.log('Starting with empty jobs storage');
+  }
+}
+
+async function saveJobsToFile() {
+  try {
+    const jobsData = Object.fromEntries(jobs);
+    await fs.writeFile(JOBS_FILE, JSON.stringify(jobsData, null, 2));
+    console.log(`Saved ${jobs.size} jobs to file`);
+  } catch (error) {
+    console.error('Error saving jobs to file:', error);
+  }
+}
 
 // VR180 Processing Pipeline
 class VR180Pipeline {
@@ -111,6 +138,9 @@ class VR180Pipeline {
       const completed = this.stages.filter(s => s.status === 'completed').length;
       job.progress = Math.round((completed / this.stages.length) * 100);
       console.log(`[${this.jobId}] ${stageName}: ${progress}% (${status})`);
+
+      // Save to file after each update
+      saveJobsToFile();
     }
   }
 
@@ -286,6 +316,7 @@ class VR180Pipeline {
         job.status = 'completed';
         job.outputPath = `${this.outputDir}/final_vr180.mp4`;
         console.log(`[${this.jobId}] Pipeline completed successfully`);
+        saveJobsToFile(); // Save completion status
       }
     } catch (error) {
       console.error(`[${this.jobId}] Pipeline failed:`, error.message);
@@ -293,6 +324,7 @@ class VR180Pipeline {
       if (job) {
         job.status = 'failed';
         job.error = error.message;
+        saveJobsToFile(); // Save failed status
       }
       throw error;
     }
@@ -318,7 +350,7 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
     console.log(`[${jobId}] Upload received: ${req.file.originalname} (${(req.file.size / 1024 / 1024).toFixed(2)}MB)`);
 
     // Create job immediately (non-blocking response)
-    jobs.set(jobId, {
+    const jobData = {
       jobId,
       status: 'queued',
       progress: 0,
@@ -327,7 +359,11 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
       outputPath: null,
       error: null,
       lastUpdated: new Date()
-    });
+    };
+    jobs.set(jobId, jobData);
+
+    // Save to file immediately
+    await saveJobsToFile();
 
     // Run pipeline in background (non-blocking)
     const pipeline = new VR180Pipeline(jobId, inputPath);
@@ -375,6 +411,9 @@ app.get('/api/download/:jobId', async (req, res) => {
   }
 });
 
+// Load existing jobs from file on startup
+await loadJobsFromFile();
+
 // Cleanup old jobs (every 1 hour)
 setInterval(() => {
   const now = new Date();
@@ -384,6 +423,8 @@ setInterval(() => {
       console.log(`Cleanup: Deleted old job ${jobId}`);
     }
   }
+  // Save after cleanup
+  saveJobsToFile();
 }, 60000); // Check every minute
 
 // Start server
