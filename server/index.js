@@ -262,11 +262,12 @@ class VR180Pipeline {
             '-r', '24', // 24fps
             '-y' // Overwrite output
           ])
-          .on('progress', (progress) => {
-            const percent = Math.min(progress.percent || 0, 90);
-            this.updateProgress('upscaling', 10 + (percent * 9)); // 10-100% simulation
-            console.log(`[${this.jobId}] Upscaling progress: ${Math.round(percent)}%`);
-          })
+        .on('progress', (progress) => {
+          const percent = Math.min(progress.percent || 0, 90);
+          const stageProgress = 10 + Math.round(percent * 0.9); // 10-100% range
+          this.updateProgress('upscaling', Math.min(stageProgress, 100), 'processing');
+          console.log(`[${this.jobId}] Upscaling progress: ${Math.round(percent)}% (stage: ${stageProgress}%)`);
+        })
           .on('end', () => {
             console.log(`[${this.jobId}] Upscaling complete: ${outputPath}`);
             this.updateProgress('upscaling', 100, 'completed');
